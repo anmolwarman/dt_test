@@ -1,0 +1,33 @@
+{
+  "oof_auc": 0.8168901534805386,
+  "oof_brier": 0.1763037724914551,
+  "interval_months": [
+    3,
+    6,
+    9,
+    12,
+    15,
+    18,
+    21,
+    24
+  ],
+  "n_samples": 7692,
+  "n_features": 77,
+  "dropped_columns": {
+    "all_missing": [
+      "xdimension_largest_mean",
+      "xdimension_largest_max",
+      "ydimension_largest_mean",
+      "ydimension_largest_max",
+      "zdimension_largest_mean",
+      "zdimension_largest_max"
+    ],
+    "high_missing": [
+      "max_dose_plan_mean",
+      "max_dose_plan_max"
+    ],
+    "low_variance_num": [
+      "largest_target_in_plan_max"
+    ]
+  }
+}

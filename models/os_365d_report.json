@@ -1,0 +1,17 @@
+{
+  "label_used": "label_os_365d",
+  "cv_auc_mean": 0.6259680650091608,
+  "cv_auc_std": 0.04744896344160913,
+  "cv_aupr_mean": 0.5580229498544677,
+  "cv_brier_mean": 0.23514632859312196,
+  "n_samples": 951,
+  "n_features_num": 4,
+  "n_features_cat": 0,
+  "features_num": [
+    "age",
+    "primary_histology",
+    "extracranial_disease",
+    "kps_pre_gk"
+  ],
+  "features_cat": []
+}

@@ -1,0 +1,22 @@
+{
+  "horizon_days": 180,
+  "cv_auc_mean": 0.9964267672358131,
+  "cv_auc_std": 0.0025892925922040722,
+  "cv_aupr_mean": 0.9949693356029945,
+  "cv_brier_mean": 0.0433951802298715,
+  "n_samples": 571,
+  "n_features_num": 9,
+  "n_features_cat": 0,
+  "features_num": [
+    "age",
+    "primary_histology",
+    "extracranial_disease",
+    "total_fu_time",
+    "kps_last",
+    "kps_min",
+    "kps_max",
+    "rn_any_ever",
+    "total_vol_all_targets"
+  ],
+  "features_cat": []
+}
