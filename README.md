@@ -1,87 +1,242 @@
-# Brain Mets Digital Twin — MVP (No Radiomics)
+# BrainMets Digital Twin MVP
 
-This MVP builds two deployable predictors from the NYU Brain Mets CSVs:
+This repository contains a **Digital Twin MVP** for patients undergoing Gamma Knife radiosurgery (GKRS) for brain metastases.  
+It provides a full pipeline: ETL (extract–transform–load), survival model training (OS), radionecrosis prediction (RN), advanced models (XGBoost, DTS), API serving, and interactive visualization.
 
-1. **RN risk classifier** after SRS/GK (binary at 180 days; falls back to "any time" if timing columns not found).
-2. **Overall survival** (OS) classifier at 180 and 365 days from first GK.
+---
 
-It includes:
-- ETL to normalize the four CSVs and derive features/labels.
-- Training scripts (scikit-learn) that save models to `models/`.
-- A FastAPI service exposing JSON endpoints for predictions.
+## Table of Contents
+1. Project Overview
+2. Requirements
+3. Environment Setup
+4. Data Sources
+5. ETL: Converting CSV → Parquet
+6. Training RN Models
+7. Training OS Models (Logistic, Extended, XGB, DTS)
+8. Evaluating Models
+9. Handling Class Imbalance
+10. Feature Engineering (Comorbidities, Radiomics, Systemic Therapy)
+11. Prediction and Plotting Curves
+12. Serving API with FastAPI/Uvicorn
+13. UI Options (HTML vs React/Vite)
+14. Deployment on Mac vs Cloud
+15. Troubleshooting Common Errors
+16. Adding New Features Later
+17. Maintainer Notes
 
-> No radiomics are used. Imaging files are not required for this MVP.
+---
 
-## 0) Setup
+## 1. Project Overview
+The MVP builds **digital twins** for patients by predicting:
+- **Overall Survival (OS):** probability of survival over time (e.g., 12 months).
+- **Radionecrosis (RN):** probability of treatment‑related necrosis.
 
+Outputs include **charts of survival vs cumulative hazard**, like a Kaplan–Meier curve, but individualized.
+
+---
+
+## 2. Requirements
+- Python 3.9+
+- Virtual environment (`venv`)
+- Dependencies: `pandas`, `numpy`, `scikit-learn`, `pyarrow`, `fastparquet`, `xgboost`, `joblib`, `matplotlib`, `fastapi`, `uvicorn`, `chart.js` (for HTML UI).
+- (Optional) Node.js + npm for React frontend.
+
+---
+
+## 3. Environment Setup
 ```bash
-# Create and activate a virtual environment (choose one)
+cd /Users/anmolwarman/Desktop/brainmets_twin_mvp
 python3 -m venv .venv
 source .venv/bin/activate
-
-# Or with conda:
-# conda create -y -n twin python=3.11
-# conda activate twin
-
+python -m pip install --upgrade pip setuptools wheel
 pip install -r requirements.txt
 ```
 
-## 1) Put your CSVs somewhere and point to them
-
-You can either set paths via a `.env` file at repo root:
-
-```
-TIMESERIES_CSV=/path/to/20220825_timeseries(in).csv
-IMAGING_CSV=/path/to/20220825_imaging(in).csv
-INDIVIDUAL_CSV=/path/to/20220804_individual(in).csv
-GKDETAILS_CSV=/path/to/20220804_gkdetails(in).csv
+If `pyarrow` fails:  
+```bash
+pip install --only-binary=:all: pyarrow==16.1.0
 ```
 
-Or pass them via CLI flags (see below).
+---
 
-## 2) Run ETL
+## 4. Data Sources
+You provided 4 CSVs from `nyumets.org/docs/brainapi/`:
+
+- `timeseries.csv` → longitudinal visits + radiomics
+- `imaging.csv` → imaging metadata
+- `individual.csv` → baseline patient info (age, comorbidity, systemic therapy)
+- `gkdetails.csv` → per-GKRS plan details
+
+---
+
+## 5. ETL: Converting CSV → Parquet
+Run ETL to normalize columns and merge into Parquet:
 
 ```bash
-python -m src.brainmets_twin.etl   --timeseries "$TIMESERIES_CSV"   --imaging "$IMAGING_CSV"   --individual "$INDIVIDUAL_CSV"   --gkdetails "$GKDETAILS_CSV"   --outdir data
+python -m src.brainmets_twin.etl   --timeseries ~/Downloads/20220825_timeseries(in).csv   --imaging   ~/Downloads/20220825_imaging(in).csv   --individual ~/Downloads/20220804_individual(in).csv   --gkdetails ~/Downloads/20220804_gkdetails(in).csv   --outdir data
 ```
 
-This will produce:
-- `data/patients.parquet`  (1 row per patient)
-- `data/plans.parquet`     (1 row per GK plan, with features + RN labels)
-- `data/events.parquet`    (long table of events/visits; optional for MVP)
+Generates:
+- `data/events.parquet`
+- `data/plans.parquet`
+- `data/patients.parquet`
 
-The ETL prints a **mapping report** so you can see which columns were auto-detected.
+Extended ETL (`etl_wide.py`) merges **extra radiomics + comorbidities**.
 
-## 3) Train models
+---
 
+## 6. Training RN Models
+Radionecrosis labels:
+- `label_rn_180d`, `label_rn_365d`, `label_rn_any`
+
+Run baseline RN:
 ```bash
-# RN risk classifier (180 days)
-python -m src.brainmets_twin.train_rn --infile data/plans.parquet --model_out models/rn_180d.joblib
-
-# OS classifier (180d and 365d); outputs two models
-python -m src.brainmets_twin.train_os --infile data/patients.parquet --outdir models
+python -m src.brainmets_twin.train_rn   --infile data/plans_enriched.parquet   --model_out models/rn_180d.joblib
 ```
 
-Each script prints metrics and saves a `*_report.json` and `*.joblib`.
+⚠ RN suffers from **low positives** (few patients). Better use `label_rn_any`.
 
-## 4) Run the API
+---
 
+## 7. Training OS Models
+### Logistic Regression (baseline)
 ```bash
-uvicorn api.app:app --reload --port 8000
+python -m src.brainmets_twin.train_os   --infile data/patients.parquet   --label label_os_365d   --model_out models/os_365d.joblib
 ```
 
-### Endpoints
+### Extended Logistic Regression (with aggregated plan features)
+```bash
+python -m src.brainmets_twin.train_os_ext   --infile data/patients.parquet   --plans data/plans_enriched.parquet   --label label_os_365d   --model_out models/os_365d_ext.joblib
+```
 
-- `POST /predict/rn` — RN risk after SRS at 180 days (expects GK plan features)
-- `POST /predict/os180` — 180-day mortality
-- `POST /predict/os365` — 365-day mortality
-- `GET /schema` — JSON describing the expected feature names for each endpoint
+### XGBoost Model
+```bash
+python -m src.brainmets_twin.train_os_xgb   --infile data/patients.parquet   --plans data/plans_enriched.parquet   --label label_os_365d   --model_out models/os_365d_xgb.joblib
+```
 
-See `api/example_client.py` for a working example.
+### DTS Model (per‑interval survival curve)
+```bash
+python -m src.brainmets_twin.train_os_dts   --patients data/patients.parquet   --plans data/plans_enriched.parquet   --label label_os_365d   --model_out models/os_dts.joblib
+```
 
-## Notes & Assumptions
+---
 
-- The scripts **auto-detect** column names via fuzzy matching. They will list what they found and which fallbacks were used.
-- RN label prefers a 0–180 day window if a "days-from-GK" column is found in the time-series. If not, it uses "ever RN".
-- OS labels require a numeric `days_to_death_from_gk` column; rows missing this are dropped for OS training.
-- This is a minimal MVP intended to prove end-to-end deployment and allow iteration on features.
+## 8. Evaluating Models
+Metrics printed after training:
+- AUC (ROC)
+- AUPR
+- Brier score
+- # features used
+- CV folds
+
+Check JSON logs in stdout.
+
+---
+
+## 9. Handling Class Imbalance
+- RN labels are very rare → use `label_rn_any` or survival instead.
+- Possible fixes:
+  - Oversample positives (SMOTE)
+  - Undersample negatives
+  - Use focal loss or class weights
+
+---
+
+## 10. Feature Engineering
+Features include:
+- **Patient-level:** age, histology, comorbidity, systemic therapy
+- **Plan-level:** margin dose, beam‑on time, conformity indices, tumor counts
+- **Aggregations:** mean, max, sum across multiple GKRS
+
+We drop:
+- Columns with 100% missing
+- Columns with no variance
+
+Categorical variables (histology, extracranial disease) → encoded numerically (0/1 or one-hot).
+
+---
+
+## 11. Prediction and Plotting Curves
+Predict a single patient:
+```bash
+python -m src.brainmets_twin.predict_plot_os_dts   --model models/os_dts.joblib   --patients data/patients.parquet   --plans data/plans_enriched.parquet   --patient_id 10092334   --out_png charts/os_curve_10092334.png   --out_json charts/os_curve_10092334.json
+```
+
+Outputs:
+- `.png` chart
+- `.json` probabilities per interval
+
+---
+
+## 12. Serving API with FastAPI/Uvicorn
+Create `api_os_dts.py`:
+```bash
+uvicorn api_os_dts:app --reload --port 8080
+```
+
+Endpoints:
+- `/predict/{patient_id}` → returns survival curve JSON
+- `/health` → health check
+
+---
+
+## 13. UI Options
+### A. Simple HTML
+Located in `charts/os_view.html`. Uses Chart.js to fetch API and plot curves.
+
+### B. React/Vite UI
+1. Install Node:
+   ```bash
+   brew install node
+   ```
+2. Create project:
+   ```bash
+   npm create vite@latest digital-twin-ui -- --template react
+   cd digital-twin-ui
+   npm install recharts
+   ```
+3. Create `src/OsTwinChart.jsx` with chart code.
+4. Run:
+   ```bash
+   npm run dev
+   ```
+
+---
+
+## 14. Deployment on Mac vs Cloud
+- Mac is fine for MVP (small dataset).
+- For scaling (more patients, GPU radiomics), use:
+  - AWS EC2 (p3 or g4 instances)
+  - GCP or Azure equivalents
+
+---
+
+## 15. Troubleshooting
+- **`pyarrow` missing:** `pip install pyarrow --only-binary=:all:`
+- **ROC AUC NaN:** only one positive label → switch to OS or RN_any
+- **Index out-of-bounds:** patient_id not found
+- **NaN in predict:** ensure imputers handle missing values
+
+---
+
+## 16. Adding New Features Later
+- Comorbidity data (from `individual.csv`) → extend patient parquet
+- Systemic therapy (chemo, immuno) → binary encodings
+- Radiomics features → already partially integrated, add more in ETL
+
+---
+
+## 17. Maintainer Notes
+- Code lives in `src/brainmets_twin/`
+- Data stored in `data/`
+- Models stored in `models/`
+- Charts (PNG + JSON) in `charts/`
+- When opening a new thread, paste patient IDs + JSON outputs for fast debugging
+- Always regenerate Parquet after changing ETL
+- Keep this README up to date with new features
+
+---
+
+**Maintainer:**  
+@Anmol Warman  
+Digital Twin for BrainMets MVP  

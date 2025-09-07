@@ -1,2 +1,2 @@
-import OsTwinChart from './OsTwinChart.jsx';
-export default function App() { return <OsTwinChart/>; }
+import OsTwinApp from "./OsTwinApp.jsx";
+export default function App(){ return <OsTwinApp/>; }
