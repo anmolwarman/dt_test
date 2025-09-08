@@ -11,7 +11,7 @@ import os
 
 # ---------- Config ----------
 ROOT = os.path.abspath(os.path.dirname(__file__))
-MODEL_PATH = os.path.join(ROOT, "models", "os_dts.joblib")
+MODEL_PATH = os.path.join(ROOT, "models", "os_dts_cv.joblib")
 PATIENTS_PARQUET = os.path.join(ROOT, "data", "patients.parquet")
 PLANS_PARQUET = os.path.join(ROOT, "data", "plans_enriched.parquet")
 

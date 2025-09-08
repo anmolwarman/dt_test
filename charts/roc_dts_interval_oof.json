@@ -1,0 +1,26 @@
+{
+  "auc_oof": 0.8346801541397464,
+  "n_rows": 46608,
+  "n_features": 43,
+  "intervals": [
+    3,
+    6,
+    9,
+    12,
+    15,
+    18,
+    21,
+    24
+  ],
+  "dropped_columns": {
+    "all_missing": [
+      "xdimension_largest",
+      "ydimension_largest",
+      "zdimension_largest"
+    ],
+    "high_missing": [
+      "max_dose_plan"
+    ],
+    "low_variance_num": []
+  }
+}

@@ -1,0 +1,68 @@
+{
+  "feature_names": [
+    "age",
+    "beam_on_time",
+    "beam_on_time_min",
+    "coverage_largest",
+    "days_after_initial_gk",
+    "extracranial_disease",
+    "gk_count",
+    "gk_id",
+    "gri",
+    "gri_largest",
+    "horizon_m",
+    "interval_months",
+    "kps_at_gks",
+    "largest_target_in_plan",
+    "margin_dose",
+    "margin_dose_largest",
+    "max_dose_largest",
+    "max_linear_dimension_largest",
+    "mean_dose_largest",
+    "min_dose_largest",
+    "num_brainstem_gk",
+    "num_cerebellum_gk",
+    "num_gk_targets",
+    "num_isocenters_largest",
+    "num_lobar_gk",
+    "num_skull_gk",
+    "num_targets",
+    "num_thal_bg_gk",
+    "patient_identifier",
+    "pci",
+    "pci_largest",
+    "percent_isodose",
+    "percent_isodose_largest",
+    "piv_cc",
+    "piv_cc_largest",
+    "target_volume",
+    "target_volume_largest",
+    "total_num_tumors_gk",
+    "total_targets",
+    "total_vol_all_targets",
+    "total_vol_all_targets_ts",
+    "v12_cc",
+    "v12_cc_largest"
+  ],
+  "intervals": [
+    3,
+    6,
+    9,
+    12,
+    15,
+    18,
+    21,
+    24
+  ],
+  "dropped_columns": {
+    "all_missing": [
+      "xdimension_largest",
+      "ydimension_largest",
+      "zdimension_largest"
+    ],
+    "high_missing": [
+      "max_dose_plan"
+    ],
+    "low_variance_num": []
+  }
+}
